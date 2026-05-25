@@ -63,6 +63,7 @@ export interface Assignment {
   timeAllowedMinutes: number;
   sections: Section[];
   variants: Variant[];
+  activeVariantIndex?: number;
   createdAt: string;
   updatedAt: string;
 }

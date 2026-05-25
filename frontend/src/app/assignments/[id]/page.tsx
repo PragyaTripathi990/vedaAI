@@ -48,7 +48,12 @@ export default function AssignmentPage() {
     const load = async () => {
       try {
         const data = await getAssignment(id);
-        if (mounted) setA(data);
+        if (mounted) {
+          setA(data);
+          if (typeof data.activeVariantIndex === "number") {
+            setActiveVariantIdx(data.activeVariantIndex);
+          }
+        }
       } catch (e) {
         if (mounted) setErr(e instanceof Error ? e.message : "Failed");
       }

@@ -75,6 +75,7 @@ const AssignmentSchema = new Schema(
     timeAllowedMinutes: { type: Number, default: 0 },
     sections: { type: [SectionSchema], default: [] },
     variants: { type: [VariantSchema], default: [] },
+    activeVariantIndex: { type: Number, default: 0 },
     jobId: { type: String, default: "" },
   },
   { timestamps: true }

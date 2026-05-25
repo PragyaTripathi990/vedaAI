@@ -8,6 +8,7 @@ export interface AuthUser {
   email: string;
   school: string;
   schoolCity: string;
+  wsToken?: string;
 }
 
 // Clear any persisted user-scoped draft state from the browser.

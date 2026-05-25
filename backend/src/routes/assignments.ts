@@ -93,11 +93,11 @@ router.post("/", async (req: AuthedRequest, res) => {
 router.post("/:id/regenerate", async (req: AuthedRequest, res) => {
   const doc = await findOwned(req, req.params.id);
   if (!doc) return res.status(404).json({ error: "Not found" });
+  // Keep existing sections + variants in place; the worker will write the new
+  // paper into the active variant slot when it finishes.
   doc.status = "queued";
   doc.progress = 0;
   doc.error = "";
-  doc.sections = [] as never;
-  doc.greeting = "";
   await doc.save();
 
   const input = {
@@ -234,7 +234,10 @@ router.post("/:id/active-variant", async (req: AuthedRequest, res) => {
   if (!doc) return res.status(404).json({ error: "Not found" });
   const v = doc.variants?.[index];
   if (!v) return res.status(404).json({ error: "Variant not found" });
-  await Assignment.updateOne({ _id: doc._id, userId: req.userId }, { sections: v.sections });
+  await Assignment.updateOne(
+    { _id: doc._id, userId: req.userId },
+    { sections: v.sections, activeVariantIndex: index }
+  );
   res.json({ ok: true });
 });
 

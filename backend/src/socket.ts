@@ -18,12 +18,17 @@ export function initSocket(httpServer: HttpServer) {
 
   io.use((socket: AuthedSocket, next) => {
     try {
-      const cookieHeader = socket.handshake.headers.cookie || "";
-      const parsed = cookie.parse(cookieHeader);
-      const token = parsed[env.COOKIE_NAME];
+      // Prefer the explicit auth payload (works cross-origin), fall back to cookie.
+      const authToken =
+        (socket.handshake.auth && (socket.handshake.auth.token as string | undefined)) || "";
+      let token = authToken;
+      if (!token) {
+        const cookieHeader = socket.handshake.headers.cookie || "";
+        const parsed = cookie.parse(cookieHeader);
+        token = parsed[env.COOKIE_NAME] || "";
+      }
       const payload = token ? readToken(token) : null;
       if (payload) socket.data.userId = payload.uid;
-      // Allow connect either way; subscribe will enforce ownership.
       next();
     } catch {
       next();

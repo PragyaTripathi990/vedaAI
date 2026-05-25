@@ -49,17 +49,47 @@ export function startWorker() {
           }
         });
 
-        await Assignment.updateOne(
-          { _id: assignmentId },
-          {
-            status: "completed",
-            progress: 100,
-            sections: paper.sections,
-            variants: [{ label: "Set A", sections: paper.sections }],
-            greeting: paper.greeting,
-            timeAllowedMinutes: paper.timeAllowedMinutes || 0,
-          }
+        // Decide how to land the regenerated paper:
+        // - If the assignment already has variants, replace only the ACTIVE one
+        //   (so Sets B/C stay untouched when the user hits Regenerate).
+        // - Otherwise (first generation), seed Set A.
+        const existing = await Assignment.findById(assignmentId).select(
+          "variants activeVariantIndex"
         );
+        const hasVariants = (existing?.variants?.length || 0) > 0;
+        const activeIdx = existing?.activeVariantIndex ?? 0;
+
+        if (hasVariants) {
+          const safeIdx = Math.max(
+            0,
+            Math.min(activeIdx, (existing?.variants?.length || 1) - 1)
+          );
+          const label = existing?.variants?.[safeIdx]?.label || `Set ${String.fromCharCode(65 + safeIdx)}`;
+          await Assignment.updateOne(
+            { _id: assignmentId },
+            {
+              status: "completed",
+              progress: 100,
+              sections: paper.sections,
+              [`variants.${safeIdx}`]: { label, sections: paper.sections },
+              greeting: paper.greeting,
+              timeAllowedMinutes: paper.timeAllowedMinutes || 0,
+            }
+          );
+        } else {
+          await Assignment.updateOne(
+            { _id: assignmentId },
+            {
+              status: "completed",
+              progress: 100,
+              sections: paper.sections,
+              variants: [{ label: "Set A", sections: paper.sections }],
+              activeVariantIndex: 0,
+              greeting: paper.greeting,
+              timeAllowedMinutes: paper.timeAllowedMinutes || 0,
+            }
+          );
+        }
         emitAssignmentUpdate(assignmentId, {
           status: "completed",
           progress: 100,

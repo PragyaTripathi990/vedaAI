@@ -49,6 +49,7 @@ router.post("/signup", async (req, res) => {
     email: user.email,
     school: user.school,
     schoolCity: user.schoolCity,
+    wsToken: token,
   });
 });
 
@@ -68,6 +69,7 @@ router.post("/login", async (req, res) => {
     email: user.email,
     school: user.school,
     schoolCity: user.schoolCity,
+    wsToken: token,
   });
 });
 
@@ -79,12 +81,16 @@ router.post("/logout", (_req, res) => {
 router.get("/me", requireAuth, async (req: AuthedRequest, res) => {
   const user = await User.findById(req.userId).select("name email school schoolCity createdAt");
   if (!user) return res.status(401).json({ error: "Not found" });
+  // wsToken: short-lived token returned to the SPA so socket.io can authenticate
+  // via the `auth` payload (cross-origin browsers sometimes drop cookies on WS).
+  const wsToken = signToken(user._id.toString());
   res.json({
     id: user._id.toString(),
     name: user.name,
     email: user.email,
     school: user.school,
     schoolCity: user.schoolCity,
+    wsToken,
   });
 });
 

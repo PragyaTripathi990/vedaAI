@@ -1,6 +1,7 @@
 "use client";
 
 import { io, Socket } from "socket.io-client";
+import { useAuth } from "./auth";
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000";
 
@@ -8,19 +9,21 @@ let socket: Socket | null = null;
 
 export function getSocket(): Socket {
   if (!socket) {
-    // Polling first so the HTTP handshake carries the auth cookie, then
-    // upgrade to websocket.
+    const token = useAuth.getState().user?.wsToken;
     socket = io(SOCKET_URL, {
+      // Polling first so the HTTP handshake carries the auth cookie (when same-site),
+      // then upgrade to websocket. For cross-origin, the `auth.token` covers us.
       transports: ["polling", "websocket"],
       withCredentials: true,
       reconnection: true,
+      auth: token ? { token } : undefined,
     });
   }
   return socket;
 }
 
 // Drop the cached socket so the next call to getSocket() opens a fresh
-// connection. Used on login + logout so the new auth cookie is picked up.
+// connection. Used on login + logout so the new auth token is picked up.
 export function resetSocket() {
   if (socket) {
     try {
