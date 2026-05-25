@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body { height: 100%; }
+  body {
+    @apply bg-bg text-ink-900 font-sans antialiased;
+  }
+  h1, h2, h3, h4 { @apply font-semibold tracking-tight; }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface rounded-3xl border border-line shadow-card;
+  }
+
+  /* Inputs */
+  .label { @apply block text-sm font-medium text-ink-900 mb-2; }
+  .input {
+    @apply w-full rounded-full border border-line bg-surface px-5 py-3 text-sm placeholder:text-ink-400 focus:outline-none focus:border-ink-900 transition;
+  }
+  .textarea {
+    @apply w-full rounded-2xl border border-line bg-muted px-5 py-3 text-sm placeholder:text-ink-400 focus:outline-none focus:border-ink-900 transition min-h-[120px] resize-y;
+  }
+  .select { @apply input pr-10 appearance-none bg-surface; }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition select-none disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  /* Primary CTA: black pill with orange ring */
+  .btn-primary {
+    @apply btn bg-ink-900 text-white hover:bg-black shadow-cta;
+  }
+  /* Solid black pill without ring */
+  .btn-black {
+    @apply btn bg-ink-900 text-white hover:bg-black;
+  }
+  .btn-ghost {
+    @apply btn bg-surface text-ink-900 border border-line hover:bg-muted;
+  }
+  .btn-soft {
+    @apply btn bg-muted text-ink-700 hover:bg-ink-100;
+  }
+
+  /* Difficulty badges */
+  .badge { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium; }
+  .badge-easy { @apply badge bg-emerald-50 text-easy; }
+  .badge-moderate { @apply badge bg-amber-50 text-moderate; }
+  .badge-hard { @apply badge bg-rose-50 text-hard; }
+
+  /* Stepper */
+  .stepper-track {
+    @apply h-[3px] w-full rounded-full bg-line overflow-hidden;
+  }
+  .stepper-fill {
+    @apply h-full bg-ink-900 transition-all;
+  }
+
+  /* Stepper number inputs (with – / +) */
+  .num-stepper {
+    @apply inline-flex items-center justify-between gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-sm w-[110px];
+  }
+  .num-stepper button {
+    @apply h-6 w-6 rounded-full text-ink-500 hover:text-ink-900 disabled:opacity-30;
+  }
+
+  .err { @apply text-xs text-hard mt-1.5; }
+}
+
+/* Print styles for PDF / browser print */
+@media print {
+  body { background: white; }
+  .no-print { display: none !important; }
+  .card { box-shadow: none !important; border: none !important; }
+}
