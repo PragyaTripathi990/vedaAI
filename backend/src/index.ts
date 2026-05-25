@@ -9,7 +9,27 @@ import { startWorker } from "./worker";
 import assignmentsRouter from "./routes/assignments";
 import authRouter from "./routes/auth";
 
+process.on("unhandledRejection", (err) => {
+  console.error("[fatal] unhandledRejection:", err);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[fatal] uncaughtException:", err);
+});
+
 async function main() {
+  console.log("[startup] PORT =", env.PORT);
+  console.log("[startup] MONGO_URI host =", (() => {
+    try {
+      return new URL(env.MONGO_URI.replace("mongodb+srv://", "https://")).host;
+    } catch {
+      return "unparseable";
+    }
+  })());
+  console.log("[startup] REDIS_URL set:", env.REDIS_URL ? "yes" : "no");
+  console.log("[startup] OPENAI_API_KEY set:", env.OPENAI_API_KEY ? "yes" : "no");
+  console.log("[startup] FRONTEND_ORIGIN =", env.FRONTEND_ORIGIN);
+
+  console.log("[startup] connecting to Mongo…");
   await connectMongo();
 
   const app = express();
@@ -41,6 +61,9 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Fatal startup error", err);
+  console.error("[fatal] startup error:", err);
+  if (err instanceof Error) {
+    console.error("[fatal] stack:", err.stack);
+  }
   process.exit(1);
 });
