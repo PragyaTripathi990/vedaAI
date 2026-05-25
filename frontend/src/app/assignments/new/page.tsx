@@ -192,61 +192,86 @@ export default function NewAssignmentStep1() {
 
           {/* Question type rows */}
           <div>
-            <div className="grid grid-cols-[1fr_auto_auto_auto] sm:grid-cols-[1fr_120px_120px_32px] items-center gap-3 mb-3">
+            <div className="hidden sm:grid sm:grid-cols-[1fr_120px_120px_32px] items-center gap-3 mb-3">
               <span className="label !mb-0">Question Type</span>
-              <span className="text-xs font-medium text-ink-500 text-center hidden sm:block">
+              <span className="text-xs font-medium text-ink-500 text-center">
                 No. of Questions
               </span>
-              <span className="text-xs font-medium text-ink-500 text-center hidden sm:block">
+              <span className="text-xs font-medium text-ink-500 text-center">
                 Marks
               </span>
               <span />
             </div>
+            <span className="label sm:hidden">Question Type</span>
 
-            <div className="space-y-3">
+            <div className="space-y-4 sm:space-y-3">
               {form.questionTypeRows.map((row, i) => (
                 <div
                   key={i}
-                  className="grid grid-cols-[1fr_auto_auto_auto] sm:grid-cols-[1fr_120px_120px_32px] items-center gap-3"
+                  className="rounded-2xl border border-line bg-surface p-3 sm:border-0 sm:bg-transparent sm:p-0 sm:grid sm:grid-cols-[1fr_120px_120px_32px] sm:items-center sm:gap-3"
                 >
-                  <div className="relative">
-                    <select
-                      className="select"
-                      value={row.label}
-                      onChange={(e) => updateRow(i, { label: e.target.value })}
+                  {/* Type selector + remove on mobile */}
+                  <div className="flex items-center gap-2 sm:gap-0 sm:contents">
+                    <div className="relative flex-1 sm:flex-none">
+                      <select
+                        className="select"
+                        value={row.label}
+                        onChange={(e) => updateRow(i, { label: e.target.value })}
+                      >
+                        {QUESTION_TYPE_OPTIONS.map((o) => (
+                          <option key={o} value={o}>
+                            {o}
+                          </option>
+                        ))}
+                        {!QUESTION_TYPE_OPTIONS.includes(row.label as typeof QUESTION_TYPE_OPTIONS[number]) && (
+                          <option value={row.label}>{row.label}</option>
+                        )}
+                      </select>
+                      <ChevronDown
+                        size={16}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeRow(i)}
+                      className="sm:hidden h-9 w-9 rounded-full hover:bg-muted flex items-center justify-center text-ink-500 shrink-0"
+                      aria-label="Remove row"
                     >
-                      {QUESTION_TYPE_OPTIONS.map((o) => (
-                        <option key={o} value={o}>
-                          {o}
-                        </option>
-                      ))}
-                      {!QUESTION_TYPE_OPTIONS.includes(row.label as typeof QUESTION_TYPE_OPTIONS[number]) && (
-                        <option value={row.label}>{row.label}</option>
-                      )}
-                    </select>
-                    <ChevronDown
-                      size={16}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none"
-                    />
+                      <X size={16} />
+                    </button>
                   </div>
 
-                  <NumberStepper
-                    value={row.count}
-                    onChange={(n) => updateRow(i, { count: n })}
-                    min={1}
-                    max={100}
-                  />
-                  <NumberStepper
-                    value={row.marksPerQuestion}
-                    onChange={(n) => updateRow(i, { marksPerQuestion: n })}
-                    min={1}
-                    max={50}
-                  />
+                  {/* Steppers row on mobile, columns on desktop */}
+                  <div className="mt-3 sm:mt-0 grid grid-cols-2 gap-2 sm:contents">
+                    <div>
+                      <div className="text-[11px] font-medium text-ink-500 mb-1 sm:hidden">
+                        No. of Questions
+                      </div>
+                      <NumberStepper
+                        value={row.count}
+                        onChange={(n) => updateRow(i, { count: n })}
+                        min={1}
+                        max={100}
+                      />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-medium text-ink-500 mb-1 sm:hidden">
+                        Marks
+                      </div>
+                      <NumberStepper
+                        value={row.marksPerQuestion}
+                        onChange={(n) => updateRow(i, { marksPerQuestion: n })}
+                        min={1}
+                        max={50}
+                      />
+                    </div>
+                  </div>
 
                   <button
                     type="button"
                     onClick={() => removeRow(i)}
-                    className="h-8 w-8 rounded-full hover:bg-muted flex items-center justify-center text-ink-500"
+                    className="hidden sm:flex h-8 w-8 rounded-full hover:bg-muted items-center justify-center text-ink-500"
                     aria-label="Remove row"
                   >
                     <X size={16} />

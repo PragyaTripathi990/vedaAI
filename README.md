@@ -26,7 +26,7 @@ Built for the VedaAI Full Stack Engineering Assignment.
 │  Output page │ ◀────── mongo ──────────────┘       ▼
 │  + PDF       │                             ┌───────────────┐
 └──────────────┘                             │ Worker        │
-                                             │  → Anthropic  │
+                                             │  → OpenAI     │
                                              │  → Zod parse  │
                                              │  → Mongo save │
                                              │  → WS emit    │
@@ -36,7 +36,7 @@ Built for the VedaAI Full Stack Engineering Assignment.
 ### Flow
 1. Teacher fills the create form → `POST /api/assignments`.
 2. Backend validates with Zod, persists to Mongo with `status=queued`, enqueues a BullMQ job.
-3. Worker picks up the job, builds a structured prompt, calls Claude with a forced tool-call schema (`submit_question_paper`), validates the tool's input via Zod, saves sections into Mongo, and emits `assignment:update` + `assignment:complete` over the Socket.IO room `assignment:<id>`.
+3. Worker picks up the job, builds a structured prompt, calls OpenAI with `response_format: { type: "json_schema", strict: true }`, validates the parsed JSON via Zod, saves sections into Mongo, and emits `assignment:update` + `assignment:complete` over the Socket.IO room `assignment:<id>`.
 4. Frontend's detail page subscribes to that room, shows live progress, then renders the structured exam-paper layout. Teacher can regenerate or download a PDF (`html2pdf.js`).
 
 ### Why structured outputs?

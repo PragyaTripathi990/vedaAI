@@ -53,10 +53,12 @@ export default function AssignmentPage() {
           if (typeof data.activeVariantIndex === "number") {
             setActiveVariantIdx(data.activeVariantIndex);
           }
+          return data;
         }
       } catch (e) {
         if (mounted) setErr(e instanceof Error ? e.message : "Failed");
       }
+      return null;
     };
     load();
     const unsub = subscribeToAssignment(id, {
@@ -81,9 +83,23 @@ export default function AssignmentPage() {
         load();
       },
     });
+
+    // Polling fallback: in case WebSocket events are dropped (cross-origin
+    // upgrades, mobile network hiccups, race between subscribe and emit),
+    // poll the REST endpoint every 3s while the job is still in-flight.
+    const poll = setInterval(async () => {
+      if (!mounted) return;
+      const data = await load();
+      if (data && (data.status === "completed" || data.status === "failed")) {
+        clearInterval(poll);
+        setPartial(null);
+      }
+    }, 3000);
+
     return () => {
       mounted = false;
       unsub();
+      clearInterval(poll);
     };
   }, [id]);
 
