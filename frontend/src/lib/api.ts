@@ -114,25 +114,71 @@ async function waitForBackendAwake(timeoutMs = 60000): Promise<void> {
   }
 }
 
+// Convert a File to base64 (without the data: prefix) for the JSON upload path.
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error || new Error("Read failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadViaBase64(file: File) {
+  const content = await fileToBase64(file);
+  const res = await fetch(`${API_URL}/api/assignments/upload-base64`, {
+    method: "POST",
+    credentials,
+    headers: authHeaders({ "content-type": "application/json" }),
+    body: JSON.stringify({ content, name: file.name, mime: file.type }),
+  });
+  return handle<{ text: string; originalName: string }>(res);
+}
+
+async function uploadViaMultipart(file: File) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch(`${API_URL}/api/assignments/upload`, {
+    method: "POST",
+    credentials,
+    headers: authHeaders(),
+    body: fd,
+  });
+  return handle<{ text: string; originalName: string }>(res);
+}
+
 export async function uploadFile(file: File) {
-  const send = async () => {
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch(`${API_URL}/api/assignments/upload`, {
-      method: "POST",
-      credentials,
-      headers: authHeaders(),
-      body: fd,
-    });
-    return handle<{ text: string; originalName: string }>(res);
-  };
   try {
-    return await send();
+    return await uploadViaMultipart(file);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (msg.toLowerCase().includes("failed to fetch") || msg.toLowerCase().includes("network")) {
+    const isNetworkError =
+      msg.toLowerCase().includes("failed to fetch") ||
+      msg.toLowerCase().includes("network") ||
+      msg.toLowerCase().includes("load failed"); // iOS Safari variant
+    if (isNetworkError) {
+      // First try waking the backend and retrying multipart.
       await waitForBackendAwake();
-      return await send();
+      try {
+        return await uploadViaMultipart(file);
+      } catch (e2) {
+        // Multipart still failing on this device — fall back to base64 JSON
+        // upload, which uses a simpler request shape that mobile browsers
+        // handle more reliably with CORS + Authorization headers.
+        const msg2 = e2 instanceof Error ? e2.message : String(e2);
+        const stillNetwork =
+          msg2.toLowerCase().includes("failed to fetch") ||
+          msg2.toLowerCase().includes("network") ||
+          msg2.toLowerCase().includes("load failed");
+        if (stillNetwork) {
+          return await uploadViaBase64(file);
+        }
+        throw e2;
+      }
     }
     throw e;
   }

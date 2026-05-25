@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import multer from "multer";
 import pdfParse from "pdf-parse";
 import mongoose from "mongoose";
@@ -31,6 +31,43 @@ function findOwned(req: AuthedRequest, id: string | string[] | undefined) {
   return Assignment.findOne({ _id: id, userId: req.userId });
 }
 
+// Shared parser used by both upload endpoints below.
+async function parseUploadedBuffer(
+  buffer: Buffer,
+  originalname: string,
+  mimetype: string,
+  res: import("express").Response
+): Promise<void> {
+  let text = "";
+  if (mimetype === "application/pdf" || originalname.toLowerCase().endsWith(".pdf")) {
+    try {
+      const data = await pdfParse(buffer);
+      text = data.text;
+    } catch (e) {
+      const detail = e instanceof Error ? e.message : String(e);
+      res.status(422).json({
+        error:
+          "Couldn't read this PDF — it may be scanned, password-protected, or corrupted. Try a text-based PDF or a .txt file.",
+        detail,
+      });
+      return;
+    }
+    if (!text.trim()) {
+      res.status(422).json({
+        error:
+          "This PDF has no extractable text (likely scanned images). Try a text-based PDF or paste the content into Additional Information.",
+      });
+      return;
+    }
+  } else if (mimetype.startsWith("text/") || originalname.match(/\.(txt|md)$/i)) {
+    text = buffer.toString("utf8");
+  } else {
+    res.status(415).json({ error: "Unsupported file type. Use PDF or text." });
+    return;
+  }
+  res.json({ text: text.slice(0, 50000), originalName: originalname });
+}
+
 router.post(
   "/upload",
   (req, res, next) => {
@@ -52,37 +89,39 @@ router.post(
     try {
       if (!req.file) return res.status(400).json({ error: "No file uploaded" });
       const { mimetype, buffer, originalname } = req.file;
-      let text = "";
-      if (mimetype === "application/pdf" || originalname.toLowerCase().endsWith(".pdf")) {
-        try {
-          const data = await pdfParse(buffer);
-          text = data.text;
-        } catch (e) {
-          const detail = e instanceof Error ? e.message : String(e);
-          return res.status(422).json({
-            error:
-              "Couldn't read this PDF — it may be scanned, password-protected, or corrupted. Try a text-based PDF or a .txt file.",
-            detail,
-          });
-        }
-        if (!text.trim()) {
-          return res.status(422).json({
-            error:
-              "This PDF has no extractable text (likely scanned images). Try a text-based PDF or paste the content into Additional Information.",
-          });
-        }
-      } else if (mimetype.startsWith("text/") || originalname.match(/\.(txt|md)$/i)) {
-        text = buffer.toString("utf8");
-      } else {
-        return res.status(415).json({ error: "Unsupported file type. Use PDF or text." });
-      }
-      res.json({ text: text.slice(0, 50000), originalName: originalname });
+      await parseUploadedBuffer(buffer, originalname, mimetype, res);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       res.status(500).json({ error: msg });
     }
   }
 );
+
+// JSON-based upload fallback: takes base64-encoded file content. This bypasses
+// the multipart/form-data path which some mobile browsers handle inconsistently
+// when combined with CORS + Authorization headers.
+router.post("/upload-base64", express.json({ limit: "15mb" }), async (req, res) => {
+  try {
+    const { content, name, mime } = req.body as {
+      content?: string;
+      name?: string;
+      mime?: string;
+    };
+    if (!content || !name) {
+      return res.status(400).json({ error: "Missing content or name" });
+    }
+    const buffer = Buffer.from(content, "base64");
+    if (buffer.length > 10 * 1024 * 1024) {
+      return res
+        .status(413)
+        .json({ error: "File is too large. Please upload a file under 10MB." });
+    }
+    await parseUploadedBuffer(buffer, name, mime || "application/octet-stream", res);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: msg });
+  }
+});
 
 router.post("/", async (req: AuthedRequest, res) => {
   const parsed = createAssignmentSchema.safeParse(req.body);
