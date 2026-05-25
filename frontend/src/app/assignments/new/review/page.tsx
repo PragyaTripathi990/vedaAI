@@ -40,6 +40,7 @@ export default function ReviewStep() {
         questionTypeRows: form.questionTypeRows,
         difficultyMix: form.difficultyMix,
       });
+      form.reset();
       router.push(`/assignments/${res.id}`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to create");
