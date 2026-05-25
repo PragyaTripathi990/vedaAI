@@ -31,25 +31,58 @@ function findOwned(req: AuthedRequest, id: string | string[] | undefined) {
   return Assignment.findOne({ _id: id, userId: req.userId });
 }
 
-router.post("/upload", upload.single("file"), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-    const { mimetype, buffer, originalname } = req.file;
-    let text = "";
-    if (mimetype === "application/pdf" || originalname.toLowerCase().endsWith(".pdf")) {
-      const data = await pdfParse(buffer);
-      text = data.text;
-    } else if (mimetype.startsWith("text/") || originalname.match(/\.(txt|md)$/i)) {
-      text = buffer.toString("utf8");
-    } else {
-      return res.status(415).json({ error: "Unsupported file type. Use PDF or text." });
+router.post(
+  "/upload",
+  (req, res, next) => {
+    upload.single("file")(req, res, (err: unknown) => {
+      if (err) {
+        const code = (err as { code?: string }).code;
+        if (code === "LIMIT_FILE_SIZE") {
+          return res
+            .status(413)
+            .json({ error: "File is too large. Please upload a file under 10MB." });
+        }
+        const msg = err instanceof Error ? err.message : "Upload failed";
+        return res.status(400).json({ error: msg });
+      }
+      next();
+    });
+  },
+  async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+      const { mimetype, buffer, originalname } = req.file;
+      let text = "";
+      if (mimetype === "application/pdf" || originalname.toLowerCase().endsWith(".pdf")) {
+        try {
+          const data = await pdfParse(buffer);
+          text = data.text;
+        } catch (e) {
+          const detail = e instanceof Error ? e.message : String(e);
+          return res.status(422).json({
+            error:
+              "Couldn't read this PDF — it may be scanned, password-protected, or corrupted. Try a text-based PDF or a .txt file.",
+            detail,
+          });
+        }
+        if (!text.trim()) {
+          return res.status(422).json({
+            error:
+              "This PDF has no extractable text (likely scanned images). Try a text-based PDF or paste the content into Additional Information.",
+          });
+        }
+      } else if (mimetype.startsWith("text/") || originalname.match(/\.(txt|md)$/i)) {
+        text = buffer.toString("utf8");
+      } else {
+        return res.status(415).json({ error: "Unsupported file type. Use PDF or text." });
+      }
+      res.json({ text: text.slice(0, 50000), originalName: originalname });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: msg });
     }
-    res.json({ text: text.slice(0, 50000), originalName: originalname });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
   }
-});
+);
 
 router.post("/", async (req: AuthedRequest, res) => {
   const parsed = createAssignmentSchema.safeParse(req.body);

@@ -27,6 +27,14 @@ export default function NewAssignmentStep1() {
   }, [form.questionTypeRows]);
 
   const onUpload = async (file: File) => {
+    setErrors((e) => ({ ...e, upload: "" }));
+    if (file.size > 10 * 1024 * 1024) {
+      setErrors((e) => ({
+        ...e,
+        upload: "File is too large. Please upload a file under 10MB.",
+      }));
+      return;
+    }
     setUploading(true);
     try {
       const r = await uploadFile(file);
