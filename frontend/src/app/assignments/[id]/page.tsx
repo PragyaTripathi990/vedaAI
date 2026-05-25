@@ -183,11 +183,12 @@ export default function AssignmentPage() {
     );
   }
 
-  const isReady = a.status === "completed" && a.sections.length > 0;
+  const isReady =
+    a.status === "completed" && Array.isArray(a.sections) && a.sections.length > 0;
   const isStreaming =
     (a.status === "processing" || a.status === "queued") &&
-    partial &&
-    partial.sections &&
+    !!partial &&
+    Array.isArray(partial.sections) &&
     partial.sections.length > 0;
   const greeting =
     a.greeting ||

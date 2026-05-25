@@ -45,17 +45,28 @@ function QuestionItem({
       setRegenerating(false);
     }
   };
+  // Partial/streaming data can arrive with missing fields — be defensive.
+  const difficulty = q?.difficulty || "";
+  const type = q?.type || "";
+  const marks = typeof q?.marks === "number" ? q.marks : 0;
+  const text = q?.text || "";
   return (
     <li className="group relative text-[15px] leading-relaxed">
       <div className="flex gap-2">
         <span className="shrink-0 text-ink-900">{idx + 1}.</span>
         <span className="flex-1">
-          <span className="font-medium">[{DIFFICULTY_LABEL[q.difficulty] || q.difficulty}]</span>{" "}
-          {q.text}{" "}
-          <span className="text-ink-700 whitespace-nowrap">
-            [{q.marks} {q.marks === 1 ? "Mark" : "Marks"}]
-          </span>
-          {q.bloom && BLOOM_LABELS[q.bloom] && (
+          {difficulty && (
+            <>
+              <span className="font-medium">[{DIFFICULTY_LABEL[difficulty] || difficulty}]</span>{" "}
+            </>
+          )}
+          {text}{" "}
+          {marks > 0 && (
+            <span className="text-ink-700 whitespace-nowrap">
+              [{marks} {marks === 1 ? "Mark" : "Marks"}]
+            </span>
+          )}
+          {q?.bloom && BLOOM_LABELS[q.bloom] && (
             <span
               className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${BLOOM_BG[q.bloom] || "bg-ink-100 text-ink-700"}`}
               title={`Bloom's Taxonomy: ${BLOOM_LABELS[q.bloom]}`}
@@ -63,7 +74,7 @@ function QuestionItem({
               {BLOOM_LABELS[q.bloom]}
             </span>
           )}
-          {q.type.toLowerCase().includes("multiple choice") && q.options && (
+          {type.toLowerCase().includes("multiple choice") && Array.isArray(q?.options) && (
             <ol className="mt-1.5 ml-1 grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm text-ink-700">
               {q.options.map((opt, j) => (
                 <li key={j} className="flex gap-2">
@@ -75,7 +86,7 @@ function QuestionItem({
               ))}
             </ol>
           )}
-          {viewMode === "teacher" && q.answer && (
+          {viewMode === "teacher" && q?.answer && (
             <div className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-sm">
               <span className="font-semibold text-emerald-800">Answer:</span>{" "}
               <span className="text-emerald-900 whitespace-pre-wrap">{q.answer}</span>
@@ -114,15 +125,16 @@ function SectionBlock({
   viewMode: ViewMode;
   onRegenerateQuestion?: (sectionIndex: number, questionIndex: number) => Promise<void>;
 }) {
+  const questions = Array.isArray(section?.questions) ? section.questions : [];
   return (
     <section className="mb-8">
-      <h2 className="text-lg font-bold text-center mb-4">{section.title}</h2>
-      {section.questions[0]?.type && (
-        <h3 className="font-semibold">{section.questions[0].type}</h3>
+      <h2 className="text-lg font-bold text-center mb-4">{section?.title || ""}</h2>
+      {questions[0]?.type && (
+        <h3 className="font-semibold">{questions[0].type}</h3>
       )}
-      <p className="italic text-sm text-ink-700 mb-3">{section.instruction}</p>
+      <p className="italic text-sm text-ink-700 mb-3">{section?.instruction || ""}</p>
       <ol className="list-none p-0 space-y-2.5">
-        {section.questions.map((q, i) => (
+        {questions.map((q, i) => (
           <QuestionItem
             key={i}
             q={q}
@@ -139,7 +151,10 @@ function SectionBlock({
 }
 
 function AnswerKey({ assignment }: { assignment: Assignment }) {
-  const flat = assignment.sections.flatMap((s) => s.questions);
+  const sections = Array.isArray(assignment?.sections) ? assignment.sections : [];
+  const flat = sections.flatMap((s) =>
+    Array.isArray(s?.questions) ? s.questions : []
+  );
   return (
     <section className="mt-10">
       <h3 className="text-base font-bold mb-3">Answer Key:</h3>
@@ -147,7 +162,7 @@ function AnswerKey({ assignment }: { assignment: Assignment }) {
         {flat.map((q, i) => (
           <li key={i} className="flex gap-2 text-[15px] leading-relaxed">
             <span className="shrink-0 text-ink-900">{i + 1}.</span>
-            <span className="flex-1 whitespace-pre-wrap text-ink-700">{q.answer}</span>
+            <span className="flex-1 whitespace-pre-wrap text-ink-700">{q?.answer || ""}</span>
           </li>
         ))}
       </ol>
@@ -165,10 +180,15 @@ export function QuestionPaper({
   onRegenerateQuestion?: (sectionIndex: number, questionIndex: number) => Promise<void>;
 }) {
   const { name, rollNumber, section, setStudent } = useStudentStore();
+  const safeSections = Array.isArray(assignment?.sections) ? assignment.sections : [];
   const totalMarks =
-    assignment.totalMarks ||
-    assignment.sections.reduce(
-      (s, sec) => s + sec.questions.reduce((ss, q) => ss + q.marks, 0),
+    assignment?.totalMarks ||
+    safeSections.reduce(
+      (s, sec) =>
+        s +
+        (Array.isArray(sec?.questions)
+          ? sec.questions.reduce((ss, q) => ss + (typeof q?.marks === "number" ? q.marks : 0), 0)
+          : 0),
       0
     );
 
@@ -217,9 +237,9 @@ export function QuestionPaper({
         />
       </div>
 
-      {assignment.sections.map((sec, i) => {
+      {safeSections.map((sec, i) => {
         const start = running;
-        running += sec.questions.length;
+        running += Array.isArray(sec?.questions) ? sec.questions.length : 0;
         return (
           <SectionBlock
             key={i}
