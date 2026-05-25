@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, CalendarDays, ChevronDown, Mic, Plus, Upload, X } from "lucide-react";
 import { Topbar } from "@/components/Topbar";
 import { Stepper } from "@/components/Stepper";
@@ -15,6 +15,18 @@ export default function NewAssignmentStep1() {
   const form = useFormStore();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState(false);
+
+  // If the user arrives here from the assignments list (not by clicking
+  // Previous on the review step), start with a clean form so prior values
+  // don't bleed into the new one. We detect "fresh entry" by checking the
+  // referrer: if it's the review page, we keep the persisted state.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const fromReview = document.referrer.includes("/assignments/new/review");
+    if (!fromReview) form.reset();
+    // intentionally run only on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const totals = useMemo(() => {
     return form.questionTypeRows.reduce(
