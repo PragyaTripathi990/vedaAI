@@ -20,18 +20,27 @@ export function readToken(token: string): { uid: string } | null {
   }
 }
 
+// In production the frontend is on a different domain from the backend
+// (Vercel ↔ Render), so cookies must be SameSite=None + Secure to be sent
+// on cross-origin requests. In development we stay with lax for localhost.
+const PROD = process.env.NODE_ENV === "production";
+
 export function setSessionCookie(res: Response, token: string) {
   res.cookie(env.COOKIE_NAME, token, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: PROD ? "none" : "lax",
+    secure: PROD,
     maxAge: 30 * 24 * 60 * 60 * 1000,
     path: "/",
   });
 }
 
 export function clearSessionCookie(res: Response) {
-  res.clearCookie(env.COOKIE_NAME, { path: "/" });
+  res.clearCookie(env.COOKIE_NAME, {
+    path: "/",
+    sameSite: PROD ? "none" : "lax",
+    secure: PROD,
+  });
 }
 
 export function requireAuth(
