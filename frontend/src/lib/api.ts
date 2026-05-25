@@ -90,13 +90,46 @@ export async function listAssignments() {
   return handle<AssignmentSummary[]>(res);
 }
 
+// Wait for the backend to be reachable. Render free tier sleeps after 15 min
+// of idle and cold starts can take 30-60s; uploading a multipart payload
+// against a sleeping server produces a generic "Failed to fetch" because the
+// connection is killed before the server is ready.
+async function waitForBackendAwake(timeoutMs = 60000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(`${API_URL}/health`, {
+        cache: "no-store",
+        // 5s per attempt
+        signal: AbortSignal.timeout(5000),
+      });
+      if (res.ok) return;
+    } catch {}
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+}
+
 export async function uploadFile(file: File) {
-  const fd = new FormData();
-  fd.append("file", file);
-  const res = await fetch(`${API_URL}/api/assignments/upload`, {
-    method: "POST",
-    credentials,
-    body: fd,
-  });
-  return handle<{ text: string; originalName: string }>(res);
+  const send = async () => {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`${API_URL}/api/assignments/upload`, {
+      method: "POST",
+      credentials,
+      body: fd,
+    });
+    return handle<{ text: string; originalName: string }>(res);
+  };
+  try {
+    return await send();
+  } catch (e) {
+    // Most common cause of "Failed to fetch" on mobile is a cold-started
+    // backend. Wake it up and retry once.
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.toLowerCase().includes("failed to fetch") || msg.toLowerCase().includes("network")) {
+      await waitForBackendAwake();
+      return await send();
+    }
+    throw e;
+  }
 }

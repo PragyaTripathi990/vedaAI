@@ -20,10 +20,14 @@ export default function NewAssignmentStep1() {
   // Previous on the review step), start with a clean form so prior values
   // don't bleed into the new one. We detect "fresh entry" by checking the
   // referrer: if it's the review page, we keep the persisted state.
+  // Also fire a /health ping on entry so the backend is awake by the time
+  // the user uploads a file (Render free tier sleeps after 15 min idle).
   useEffect(() => {
     if (typeof window === "undefined") return;
     const fromReview = document.referrer.includes("/assignments/new/review");
     if (!fromReview) form.reset();
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    fetch(`${apiUrl}/health`, { cache: "no-store" }).catch(() => {});
     // intentionally run only on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
