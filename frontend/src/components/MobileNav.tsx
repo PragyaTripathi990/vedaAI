@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { LayoutGrid, FileText, BookOpen, Sparkles } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { LayoutGrid, FileText, BookOpen, Sparkles, LogOut } from "lucide-react";
+import { apiLogout, useAuth } from "@/lib/auth";
 
 const ITEMS = [
   { href: "/", label: "Home", icon: LayoutGrid },
@@ -13,6 +14,17 @@ const ITEMS = [
 
 export function MobileNav() {
   const pathname = usePathname();
+  const router = useRouter();
+  const setUser = useAuth((s) => s.setUser);
+
+  const onLogout = async () => {
+    try {
+      await apiLogout();
+    } catch {}
+    setUser(null);
+    router.replace("/login");
+  };
+
   return (
     <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-ink-900 text-white px-4 pt-3 pb-5">
       <ul className="flex items-center justify-around">
@@ -33,6 +45,16 @@ export function MobileNav() {
             </li>
           );
         })}
+        <li>
+          <button
+            type="button"
+            onClick={onLogout}
+            className="flex flex-col items-center gap-1 text-xs text-ink-400 active:text-rose-300"
+          >
+            <LogOut size={20} strokeWidth={1.75} />
+            <span>Log out</span>
+          </button>
+        </li>
       </ul>
     </nav>
   );

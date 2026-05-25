@@ -37,6 +37,7 @@ async function main() {
     cors({
       origin: env.FRONTEND_ORIGIN,
       credentials: true,
+      allowedHeaders: ["content-type", "authorization"],
     })
   );
   app.use(cookieParser());

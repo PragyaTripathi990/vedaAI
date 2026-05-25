@@ -11,6 +11,38 @@ export interface AuthUser {
   wsToken?: string;
 }
 
+// Mobile browsers (especially iOS Safari and Chrome with strict tracking
+// protections) sometimes refuse to store SameSite=None+Secure cookies on
+// cross-origin responses. We persist the JWT in localStorage as a fallback
+// and send it as Authorization: Bearer on every API call so auth works
+// even when the cookie is silently dropped.
+const TOKEN_KEY = "vedaai_token";
+
+export function getAuthToken(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage.getItem(TOKEN_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function setAuthToken(token: string) {
+  if (typeof window === "undefined") return;
+  try {
+    if (token) window.localStorage.setItem(TOKEN_KEY, token);
+    else window.localStorage.removeItem(TOKEN_KEY);
+  } catch {}
+}
+
+export function authHeaders(extra?: Record<string, string>): Record<string, string> {
+  const token = getAuthToken();
+  return {
+    ...(extra || {}),
+    ...(token ? { authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 // Clear any persisted user-scoped draft state from the browser.
 // Called on login, signup, and logout so two accounts on the same browser
 // don't see each other's drafts.
@@ -76,6 +108,7 @@ export async function apiSignup(p: {
     body: JSON.stringify(p),
   });
   const user = await handle<AuthUser>(res);
+  if (user.wsToken) setAuthToken(user.wsToken);
   await clearLocalDrafts();
   return user;
 }
@@ -88,17 +121,33 @@ export async function apiLogin(email: string, password: string) {
     body: JSON.stringify({ email, password }),
   });
   const user = await handle<AuthUser>(res);
+  if (user.wsToken) setAuthToken(user.wsToken);
   await clearLocalDrafts();
   return user;
 }
 
 export async function apiMe() {
-  const res = await fetch(`${API}/api/auth/me`, { credentials: "include" });
-  if (res.status === 401) return null;
-  return handle<AuthUser>(res);
+  const res = await fetch(`${API}/api/auth/me`, {
+    credentials: "include",
+    headers: authHeaders(),
+  });
+  if (res.status === 401) {
+    setAuthToken("");
+    return null;
+  }
+  const user = await handle<AuthUser>(res);
+  if (user.wsToken) setAuthToken(user.wsToken);
+  return user;
 }
 
 export async function apiLogout() {
-  await fetch(`${API}/api/auth/logout`, { method: "POST", credentials: "include" });
+  try {
+    await fetch(`${API}/api/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+      headers: authHeaders(),
+    });
+  } catch {}
+  setAuthToken("");
   await clearLocalDrafts();
 }

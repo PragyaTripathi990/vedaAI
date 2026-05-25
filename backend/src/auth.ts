@@ -48,7 +48,14 @@ export function requireAuth(
   res: Response,
   next: NextFunction
 ) {
-  const token = req.cookies?.[env.COOKIE_NAME];
+  // Prefer cookie; fall back to Authorization: Bearer header. The header
+  // path is a safety net for mobile browsers that drop third-party cookies
+  // on cross-origin (Vercel ↔ Render) requests despite SameSite=None.
+  let token = req.cookies?.[env.COOKIE_NAME] || "";
+  if (!token) {
+    const header = req.headers.authorization || "";
+    if (header.startsWith("Bearer ")) token = header.slice(7);
+  }
   if (!token) return res.status(401).json({ error: "Not authenticated" });
   const payload = readToken(token);
   if (!payload) return res.status(401).json({ error: "Invalid session" });
