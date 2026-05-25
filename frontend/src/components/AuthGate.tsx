@@ -6,6 +6,17 @@ import { apiMe, useAuth } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
 
 const PUBLIC_PATHS = ["/login", "/signup"];
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+// Render free-tier sleeps after 15 min idle and a cold start takes ~30-60s.
+// Fire a fire-and-forget /health request as soon as the app mounts so the
+// backend is warm by the time the user submits anything (upload, login, etc.).
+function warmupBackend() {
+  if (typeof window === "undefined") return;
+  try {
+    fetch(`${API}/health`, { cache: "no-store" }).catch(() => {});
+  } catch {}
+}
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -13,6 +24,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, loading, setUser, setLoading } = useAuth();
 
   useEffect(() => {
+    warmupBackend();
     let mounted = true;
     setLoading(true);
     apiMe()
