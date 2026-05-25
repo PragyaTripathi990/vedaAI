@@ -24,18 +24,11 @@ import {
   Sparkles,
 } from "lucide-react";
 
-interface PartialPaper {
-  greeting?: string;
-  timeAllowedMinutes?: number;
-  sections?: Assignment["sections"];
-}
-
 export default function AssignmentPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params.id;
   const [a, setA] = useState<Assignment | null>(null);
-  const [partial, setPartial] = useState<PartialPaper | null>(null);
   const [err, setErr] = useState("");
   const [progressMsg, setProgressMsg] = useState("Queued");
   const [downloading, setDownloading] = useState(false);
@@ -75,11 +68,9 @@ export default function AssignmentPage() {
             : prev
         );
       },
-      onPartial: (paper) => {
-        setPartial(paper as PartialPaper);
-      },
+      // Intentionally ignore partial paper events — we only show the paper
+      // once generation is fully complete.
       onComplete: () => {
-        setPartial(null);
         load();
       },
     });
@@ -92,7 +83,6 @@ export default function AssignmentPage() {
       const data = await load();
       if (data && (data.status === "completed" || data.status === "failed")) {
         clearInterval(poll);
-        setPartial(null);
       }
     }, 3000);
 
@@ -106,7 +96,6 @@ export default function AssignmentPage() {
   const onRegenerate = async () => {
     await regenerateAssignment(id);
     setProgressMsg("Queued");
-    setPartial(null);
     const data = await getAssignment(id);
     setA(data);
   };
@@ -185,25 +174,9 @@ export default function AssignmentPage() {
 
   const isReady =
     a.status === "completed" && Array.isArray(a.sections) && a.sections.length > 0;
-  const isStreaming =
-    (a.status === "processing" || a.status === "queued") &&
-    !!partial &&
-    Array.isArray(partial.sections) &&
-    partial.sections.length > 0;
   const greeting =
     a.greeting ||
-    partial?.greeting ||
     (isReady ? `Here is your customized question paper for ${a.title}.` : "");
-
-  // Build a synthetic assignment-shaped object for partial rendering.
-  const streamingAssignment: Assignment | null = isStreaming
-    ? {
-        ...a,
-        greeting: partial?.greeting || "",
-        timeAllowedMinutes: partial?.timeAllowedMinutes || a.timeAllowedMinutes,
-        sections: partial?.sections || [],
-      }
-    : null;
 
   return (
     <>
@@ -292,21 +265,9 @@ export default function AssignmentPage() {
               progress={a.progress}
               message={progressMsg}
               title={a.title}
-              greeting={partial?.greeting}
             />
           )}
         </div>
-
-        {/* Streaming partial preview while generation is in progress */}
-        {streamingAssignment && (
-          <div className="relative">
-            <div className="absolute top-3 right-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-accent-50 text-accent-700 px-3 py-1 text-xs font-semibold border border-accent-100">
-              <Sparkles size={12} className="animate-pulse" />
-              Writing…
-            </div>
-            <QuestionPaper assignment={streamingAssignment} viewMode="student" />
-          </div>
-        )}
 
         {isReady && (
           <QuestionPaper
@@ -353,12 +314,10 @@ function ProgressBlock({
   progress,
   message,
   title,
-  greeting,
 }: {
   progress: number;
   message: string;
   title: string;
-  greeting?: string;
 }) {
   const pct = Math.max(5, Math.min(100, progress || 5));
   return (
@@ -368,11 +327,7 @@ function ProgressBlock({
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm sm:text-base mb-1">
-          {greeting || (
-            <>
-              Generating your <span className="font-semibold">{title}</span>…
-            </>
-          )}
+          Generating your <span className="font-semibold">{title}</span>…
         </p>
         <p className="text-xs text-ink-300 mb-3">{message}</p>
         <div className="h-1.5 w-full rounded-full bg-ink-700 overflow-hidden">
